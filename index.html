@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Button Redirect</title>
+    <script type="text/javascript">
+        function redirectToGoogle() {
+            window.location.href = "http://www.strava.com/oauth/authorize?client_id=128672&response_type=code&redirect_uri=http://localhost/exchange_token&approval_prompt=force&scope=read";
+        }
+    </script>
+</head>
+<body>
+    <button onclick="redirectToGoogle()">Go to Google</button>
+</body>
+</html>

@@ -4,9 +4,9 @@ import mongodb from 'mongodb';
 import node from 'http';
 import bodyParser from 'body-parser';
 import libRoutes from './lib/readFiles.js';
-import path from 'path';
-import { checkConnection as CheckConnectionMongo } from './config/mongodb.js'
-
+import path, { dirname } from 'path';
+import { checkConnection as CheckConnectionMongo } from './config/mongodb.js';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const routes = libRoutes('./routes');
@@ -15,8 +15,12 @@ const routes = libRoutes('./routes');
 ///enable form Data
 app.use(bodyParser.json({ limit: '30mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 
+app.get('/', function (req, res) {
+    res.sendFile(path.join(__dirname, '/index.html'));
+});
 //corss setting
 app.use(corss());
 

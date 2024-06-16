@@ -1,8 +1,12 @@
 import { client, clients } from "../config/mongodb.js";
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 export const getStraveAPI = async (req, res) => {
     try {
-        return res.status(200).json({ success: true, message: 'router works' })
+        // res.writeHeader(200, { "Content-Type": "text/html" });
+        console.log(__dirname)
+        res.sendFile(path.join(__dirname, '/index.html'));
     } catch (err) {
         return res.status(200).json({ success: true, message: "router doesn't works" })
     } finally {
