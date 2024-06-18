@@ -2,6 +2,7 @@ Note :
 - This app use cookies authentication method, please makesure you include the cookies along with every request that you made
 - To get the cookies please sign in first, with connect endpoint
 - in case you want to test it with postman, you can grab your cookies from network tab on your browser 'inspect element' after successfully loged in via app put it on your postman Headers (cookies ex : {client_id=xxxxxx; access_token=xxxxxx})
+- .env files consist off all the secreet bearbone, if you want to run it on your local machine please provide all the .env file mention
 
 **ENDPOINT**
 
