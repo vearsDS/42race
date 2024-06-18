@@ -1,28 +1,28 @@
 import express from 'express';
 import corss from 'cors';
-import mongodb from 'mongodb';
 import node from 'http';
 import bodyParser from 'body-parser';
 import libRoutes from './lib/readFiles.js';
-import path, { dirname } from 'path';
+import path from 'path';
 import { checkConnection as CheckConnectionMongo } from './config/mongodb.js';
 import { fileURLToPath } from 'url';
+import 'dotenv/config';
+import { WebSocketServer } from 'ws';
+import cookieParser from 'cookie-parser';
 
 const app = express();
 const routes = libRoutes('./routes');
 
-
-///enable form Data
 app.use(bodyParser.json({ limit: '30mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
-const __dirname = dirname(fileURLToPath(import.meta.url));
+app.use(corss({ origin: '*' }));
+app.use(cookieParser());
 
+//TODO : add main pages routes
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-app.get('/', function (req, res) {
-    res.sendFile(path.join(__dirname, '/index.html'));
-});
-//corss setting
-app.use(corss());
+app.use(express.static(path.join(__dirname, 'assets')));
 
 //itterates and import through all routes
 const arr = [];
@@ -41,6 +41,8 @@ routes.forEach(async (file) => {
 
 const PORT = process.env.PORT || 3000;
 const server = node.createServer(app);
+export const wss = new WebSocketServer({ server });
+
 
 server.listen(PORT, async () => {
     try {

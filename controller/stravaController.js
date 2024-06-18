@@ -1,107 +1,130 @@
-import { client, clients } from "../config/mongodb.js";
-import request from 'request'
+import { clients, disconnect } from "../config/mongodb.js";
+import axios from 'axios';
+import 'dotenv/config';
+import { checkUser } from "./userController.js";
 
 
-const getRefreshToken = async (client_id, client_secret, refresh_token) => {
+
+export const subscribeWebhook = async (req, res) => {
     try {
-        const clientss = await clients('Accounts');
-        await clientss.findOne({ client_id: '128672' }, (err, result) => {
-            if (err) {
-                throw err;
+        const client_id = process.env.STRAVACLIENTID;
+        const client_secret = process.env.STRAVASECRET;
+        const verifyToken = 'STRAVA';
+        const baseURL = process.env.BASEURL;
+        const subscribe = await axios.post(`https://www.strava.com/api/v3/push_subscriptions?client_id=${client_id}&client_secret=${client_secret}&callback_url=${baseURL}/api/strava/webhook&verify_token=${verifyToken}`)
+        return true;
+    } catch (err) {
+        console.log(err);
+        return res.status(err.code ? err.code : 500).json({ success: false, message: err.message ? err.message : 'Error connect to webhook' })
+    }
+};
+
+export const supportWebhook = async (req, res) => {
+    try {
+        const VERIFY_TOKEN = "STRAVA";
+        // Parses the query params
+        let mode = req.query['hub.mode'];
+        let token = req.query['hub.verify_token'];
+        let challenge = req.query['hub.challenge'];
+        // Checks if a token and mode is in the query string of the request
+        if (mode && token) {
+            // Verifies that the mode and token sent are valid
+            if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+                // Responds with the challenge token from the request
+                console.log('WEBHOOK_VERIFIED');
+
+                res.status(200).json({ "hub.challenge": challenge });
+            } else {
+                // Responds with '403 Forbidden' if verify tokens do not match
+                res.sendStatus(403);
+            }
+        }
+    } catch (err) {
+        console.log(err);
+        return res.status(err.code ? err.code : 500).json({ success: false, message: err.message ? err.message : 'Error connect to webhook' })
+    }
+}
+
+export const webhook = async (req, res) => {
+    try {
+        console.log("webhook event received!", req.query, req.body);
+        const mongoClient = await clients('Activity')
+        const user = await checkUser(req.body.owner_id);
+
+        //create new index for activityID to avoid duplicate
+        const collectionIndex = await mongoClient.listIndexes().toArray();
+        await collectionIndex.map(async index => {
+            if (!index.key['activityid']) {
+                await mongoClient.createIndex({ activityid: 1 }, { unique: true })
+            } else {
+
             }
         })
-        request.post(`https://www.strava.com/oauth/token?client_id=128672&client_secret=291d4656589fab4a77307a7a71392283b6ca7aa4&code=${code}&grant_type=refresh_token`, async (error, response, body) => {
-            const responseBody = JSON.parse(response.body)
-            await clientss.insertOne({
-                client_id,
-                client_secret,
-                refresh_token,
-                access_token,
-                expires_at,
-                expires_in
-            });
-        });
+        if (user.logedin) {
+            //i cant fetch 3 days before on strava API, i already have the epoch time, but it not show anything
+            const now = Math.floor(Date.now() / 1000);
+            const threeDaysAgo = now - (3 * 24 * 60 * 60);
+            const getActivity = await axios.get(`https://www.strava.com/api/v3/athlete/activities?&page=1&per_page=100`, {
+                headers: {
+                    Authorization: `Bearer ${user.access_token}`
+                }
+            }).then(
+                response => {
+                    return response
+                }
+            );
+
+            await getActivity.data.map(data => {
+                data.athlete.username = user.username;
+                data.client_id = user.client_id;
+                data.activityid = data.id;
+            })
+
+            try {
+                await mongoClient.insertMany(getActivity.data);
+            } catch (err) {
+
+            }
+
+        }
+        console.log('event recieved')
+        res.status(200).send('EVENT_RECEIVED');
     } catch (err) {
+        console.log(err);
+        return res.status(err.code ? err.code : 500).json({ success: false, message: err.message ? err.message : 'Error connect to webhook' })
+    }
+};
+
+export const deleteWebhook = async (id) => {
+    try {
+        const client_id = process.env.STRAVACLIENTID;
+        const client_secret = process.env.STRAVASECRET;
+        return await axios.delete(`https://www.strava.com/api/v3/push_subscriptions/${id}?client_id=${client_id}&client_secret=${client_secret}`).then((response, error) => {
+            if (error) {
+                throw error
+            }
+            return { success: true }
+        }
+        );
+    } catch (err) {
+        console.log(err);
+        return new Error(err);
+    }
+};
+
+export const getExistingWebhook = async () => {
+    try {
+        const client_id = process.env.STRAVACLIENTID;
+        const client_secret = process.env.STRAVASECRET;
+        return await axios.get(`https://www.strava.com/api/v3/push_subscriptions?client_id=${client_id}&client_secret=${client_secret}`).then((response, error) => {
+            if (error) {
+                throw error
+            }
+            return { success: true, data: response.data[0] }
+        }
+        );
+    } catch (err) {
+        console.log(err);
         return new Error(err)
     }
 };
-
-
-export const getStraveAPI = async (req, res) => {
-    try {
-        const { code } = req.query;
-        const clientss = await clients('Accounts');
-        let client_id, client_secret, refresh_token, access_token, expires_at, expires_in
-        const existing = await clientss.findOne({ client_id: '128672' }, (err, result) => {
-            if (err) {
-                throw err;
-            };
-            return result;
-        });
-        if (existing) {
-            client_id = result.client_id;
-            client_secret = result.client_secret;
-            refresh_token = result.refresh_token;
-            access_token = result.access_token;
-            expires_at = result.expires_at;
-            expires_in = request.expires_in;
-            if (expires_at < Date.now() / 1000) {
-                await getRefreshToken('128672', '291d4656589fab4a77307a7a71392283b6ca7aa4', refresh_token)
-            }
-
-        } else {
-            request.post(`https://www.strava.com/oauth/token?client_id=128672&client_secret=291d4656589fab4a77307a7a71392283b6ca7aa4&code=${code}&grant_type=authorization_code`, async (error, response, body) => {
-                const responseBody = JSON.parse(response.body)
-                if (responseBody.expires_at < Date.now() / 1000) {
-                    //expired
-                    await getRefreshToken('128672', '291d4656589fab4a77307a7a71392283b6ca7aa4', responseBody.refresh_token)
-                } else {
-                    client_id = responseBody.client_id;
-                    client_secret = responseBody.client_secret;
-                    refresh_token = responseBody.refresh_token;
-                    access_token = responseBody.access_token;
-                    expires_in = responseBody.expires_in
-                    await clientss.insertOne({
-                        client_id: client_id,
-                        client_secret,
-                        refresh_token,
-                        access_token,
-                        expires_at,
-                        expires_in
-                    });
-                }
-
-            });
-        }
-
-        return res.status(200).json(`Successfully Login`)
-    } catch (err) {
-        return res.status(200).json({ success: true, message: "router doesn't works" })
-    } finally {
-        console.log('done')
-    }
-};
-
-
-export const postData = async (req, res) => {
-    try {
-        const body = req.body;
-        console.log(body)
-        const clientss = await clients('test');
-        await clientss.insertOne(body).then(data => {
-            return res.status(200).json({ success: true, message: data })
-        });
-    } catch (err) {
-        return res.status(500).json({ success: false, message: err.message })
-    } finally {
-    }
-};
-
-export const getData = async (req, res) => {
-    try {
-        const a = await clients('test');
-
-    } catch (err) {
-        return res.status(200).json({ success: false, message: err.message })
-    }
-}

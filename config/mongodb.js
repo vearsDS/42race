@@ -1,10 +1,11 @@
 import { MongoClient, ServerApiVersion } from "mongodb";
+import 'dotenv/config';
 
-const userName = encodeURIComponent(process.env.MONGOUSERNAME || "andreasgustaviano");
-const password = encodeURIComponent(process.env.MONGOPASSWORD || 'TL7ILDN4NSsnzzcx');
-const dbName = process.env.MONGODBNAME || '42race';
-const authMechanism = 'SCRAM-SHA-256';
-const uri = `mongodb+srv://${userName}:${password}@42race.k07nxqh.mongodb.net/?retryWrites=true&w=majority&appName=42race`;
+const userName = encodeURIComponent(process.env.MONGOUSERNAME);
+const password = encodeURIComponent(process.env.MONGOPASSWORD);
+const dbName = process.env.MONGODBNAME;
+
+const uri = `mongodb+srv://${userName}:${password}@42race.k07nxqh.mongodb.net/?retryWrites=true&w=majority&appName=42race?directConnection=true`;
 
 export const client = new MongoClient(uri, {
     serverApi: {
@@ -17,7 +18,7 @@ export const client = new MongoClient(uri, {
 export const checkConnection = async () => {
     try {
         await client.connect();
-        await client.db('42race').command({ ping: 1 });
+        await client.db(`${dbName}`).command({ ping: 1 });
         console.log('Mongo Server Successful Connected');
     } catch (err) {
         console.log(err)
@@ -30,9 +31,16 @@ export const checkConnection = async () => {
 export const clients = async (collection) => {
     try {
         await client.connect();
-        const db = client.db('42race');
+        const db = client.db(`${dbName}`);
         const myColl = db.collection(`${collection}`);
         return myColl;
+    } catch (err) {
+        return new Error(err);
+    }
+}
+export const disconnect = async (collection) => {
+    try {
+        await client.close();
     } catch (err) {
         return new Error(err);
     }
