@@ -18,8 +18,8 @@ export const fetchActivities = async (req, res) => {
         const fetchActivity = await mongoClient.find(filter, {
             projection: {
                 name: 1, athlete: 1, type: 1, start_date_local: 1, activityid: 1
-            }
-        }).toArray();
+            },
+        }).sort({ start_date_local: -1 }).toArray();
         if (fetchActivity.length === 0) {
             throw { code: 404, message: `No Activities Found` }
         };
